@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 from hashlib import md5, sha256
 import json
+from PIL import Image
+import base64
 
 # Initialize or load the CSV file
 CSV_FILE = "fees_data.csv"
@@ -216,6 +218,170 @@ def style_row(row):
             styles[0] = 'color: green'
     return styles
 
+# _________________________________
+# Add this at the beginning of your home_page() function
+def home_page():
+    """Display beautiful home page with logo"""
+    st.set_page_config(page_title="School Fees Management", layout="wide", page_icon="🏫")
+    
+    # Custom CSS for styling - ADD THE CIRCLE STYLING HERE
+    st.markdown("""
+    <style>
+    .main {
+        background-color: #f8f9fa;
+    }
+    .stApp {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    .title-text {
+        font-size: 3.5rem !important;
+        font-weight: 700 !important;
+        color: #2c3e50 !important;
+        text-align: center;
+        margin-bottom: 0.5rem !important;
+    }
+    .subtitle-text {
+        font-size: 1.5rem !important;
+        font-weight: 400 !important;
+        color: #7f8c8d !important;
+        text-align: center;
+        margin-bottom: 2rem !important;
+    }
+    .feature-card {
+        background-color: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+        height: 100%;
+    }
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: #3498db;
+    }
+    .feature-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #2c3e50;
+    }
+    .feature-desc {
+        color: #7f8c8d;
+        font-size: 0.9rem;
+    }
+    .login-btn {
+        background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%) !important;
+        color: white !important;
+        border: none !important;
+        padding: 0.5rem 1.5rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        margin-top: 2rem !important;
+    }
+    
+    /* ADDED CIRCLE STYLING */
+    .circle-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+    }
+    .circle {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        background-color: white;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    }
+    .circle img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Logo and title - MODIFIED TO USE CIRCLE
+    st.markdown('<div class="circle-container">', unsafe_allow_html=True)
+    
+    try:
+        # Try to load local flower.jpg
+        with open("flower.jpg", "rb") as img_file:
+            img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+        img_html = f'<img src="data:image/jpeg;base64,{img_base64}" alt="School Logo">'
+    except:
+        # Fallback to placeholder if image not found
+        img_html = '<div style="color: gray; text-align: center; padding: 20px;">School Logo</div>'
+    
+    st.markdown(
+        f"""
+        <div class="circle">
+            {img_html}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<h1 class="title-text">School Fees Management System</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle-text">Streamline your school\'s fee collection and tracking process</p>', unsafe_allow_html=True)
+    
+    # ... rest of your existing home_page() code ...
+
+# ____________________________________
+
+    # Features section
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">💰</div>
+            <h3 class="feature-title">Fee Collection</h3>
+            <p class="feature-desc">Easily record and track student fee payments with a simple, intuitive interface.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3 class="feature-title">Reports</h3>
+            <p class="feature-desc">Generate detailed reports on fee collection, outstanding payments, and student records.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3 class="feature-title">Secure Access</h3>
+            <p class="feature-desc">Role-based authentication ensures only authorized staff can access sensitive data.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Login button
+    st.markdown('<div style="text-align: center;">', unsafe_allow_html=True)
+    if st.button("Get Started / Login", key="home_login_btn", help="Click to login to the system"):
+        st.session_state.show_login = True
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Footer
+    st.markdown("""
+    <div style="text-align: center; margin-top: 3rem; color: #7f8c8d; font-size: 0.8rem;">
+        <p>© 2023 School Fees Management System | Developed with ❤️ for educational institutions</p>
+    </div>
+    """, unsafe_allow_html=True)
+
 def login_page():
     """Display login page and handle authentication"""
     st.title("🔒 School Fees Management - Login")
@@ -239,21 +405,29 @@ def user_management():
     with st.expander("➕ Create New User"):
         with st.form("create_user_form"):
             new_username = st.text_input("New Username")
-            new_password = st.text_input("New Password", type="password")
-            confirm_password = st.text_input("Confirm Password", type="password")
+            new_password = st.text_input("New Password", type="password", key="new_pass")
+            confirm_password = st.text_input("Confirm Password", type="password", key="confirm_pass")
             is_admin = st.checkbox("Admin User")
+            show_password = st.checkbox("Show Password")
+            
+            if show_password:
+                st.text(f"Password will be: {new_password if new_password else '[not set]'}")
+            
             submit = st.form_submit_button("Create User")
             
             if submit:
-                if new_password != confirm_password:
+                if not new_username or not new_password:
+                    st.error("Username and password are required!")
+                elif new_password != confirm_password:
                     st.error("Passwords do not match")
                 else:
                     success, message = create_user(new_username, new_password, is_admin)
                     if success:
                         st.success(message)
+                        st.info(f"User '{new_username}' created with password: {new_password}")
                     else:
                         st.error(message)
-    
+
     with st.expander("👀 View All Users"):
         try:
             with open(USER_DB_FILE, 'r') as f:
@@ -267,9 +441,76 @@ def user_management():
                     "Created At": details.get('created_at', "Unknown")
                 })
             
-            st.dataframe(pd.DataFrame(user_data))
+            user_df = pd.DataFrame(user_data)
+            st.dataframe(user_df)
+            
+            # Add delete user functionality
+            st.subheader("Delete User")
+            if not user_df.empty:
+                user_to_delete = st.selectbox(
+                    "Select User to Delete",
+                    user_df['Username'].tolist(),
+                    key="delete_user_select"
+                )
+                
+                if st.button("🗑️ Delete User", key="delete_user_btn"):
+                    if user_to_delete == st.session_state.current_user:
+                        st.error("You cannot delete your own account!")
+                    elif user_to_delete == "admin":
+                        st.error("Cannot delete the default admin account!")
+                    else:
+                        try:
+                            with open(USER_DB_FILE, 'r') as f:
+                                users = json.load(f)
+                            
+                            if user_to_delete in users:
+                                del users[user_to_delete]
+                                
+                                with open(USER_DB_FILE, 'w') as f:
+                                    json.dump(users, f)
+                                
+                                st.success(f"User '{user_to_delete}' deleted successfully!")
+                                st.rerun()
+                            else:
+                                st.error("User not found!")
+                        except Exception as e:
+                            st.error(f"Error deleting user: {str(e)}")
+            
         except Exception as e:
             st.error(f"Error loading users: {str(e)}")
+
+    # Password reset functionality
+    with st.expander("🔑 Reset Password"):
+        try:
+            with open(USER_DB_FILE, 'r') as f:
+                users = json.load(f)
+            
+            users_list = list(users.keys())
+            selected_user = st.selectbox("Select User", users_list)
+            
+            with st.form("reset_password_form"):
+                new_password = st.text_input("New Password", type="password", key="reset_pass")
+                confirm_password = st.text_input("Confirm Password", type="password", key="reset_confirm")
+                show_password = st.checkbox("Show New Password")
+                
+                if show_password:
+                    st.text(f"New password will be: {new_password if new_password else '[not set]'}")
+                
+                reset_btn = st.form_submit_button("Reset Password")
+                
+                if reset_btn:
+                    if not new_password:
+                        st.error("Password cannot be empty!")
+                    elif new_password != confirm_password:
+                        st.error("Passwords do not match!")
+                    else:
+                        users[selected_user]['password'] = hash_password(new_password)
+                        with open(USER_DB_FILE, 'w') as f:
+                            json.dump(users, f)
+                        st.success(f"Password for {selected_user} reset successfully!")
+                        st.info(f"New password: {new_password}")
+        except Exception as e:
+            st.error(f"Error resetting password: {str(e)}")
 
 def main_app():
     """Main application after login"""
@@ -285,6 +526,7 @@ def main_app():
         st.session_state.authenticated = False
         st.session_state.current_user = None
         st.session_state.is_admin = False
+        st.session_state.show_login = False
         st.rerun()
     
     if st.session_state.is_admin:
@@ -625,8 +867,14 @@ def main_app():
 def main():
     initialize_files()
     
+    if 'show_login' not in st.session_state:
+        st.session_state.show_login = False
+    
     if not st.session_state.authenticated:
-        login_page()
+        if st.session_state.show_login:
+            login_page()
+        else:
+            home_page()
     else:
         main_app()
 
