@@ -152,13 +152,12 @@ def load_data():
         return pd.DataFrame()
     
     try:
-        # Read CSV with error handling for older pandas versions
+        # Read CSV with error handling
         try:
             df = pd.read_csv(CSV_FILE)
         except pd.errors.EmptyDataError:
             return pd.DataFrame()
         except pd.errors.ParserError:
-            # Try reading with error_bad_lines=False for older pandas
             df = pd.read_csv(CSV_FILE, error_bad_lines=False)
         
         # Ensure all expected columns exist
@@ -172,16 +171,18 @@ def load_data():
             if col not in df.columns:
                 df[col] = np.nan
         
-        # Format dates consistently with error handling
+        # Convert dates to datetime objects but keep original formatting
         try:
-            df['Date'] = pd.to_datetime(df['Date'], dayfirst=True).dt.strftime('%d-%m-%Y')
+            df['Date'] = pd.to_datetime(df['Date']).dt.strftime('%d-%m-%Y')
         except:
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.strftime('%d-%m-%Y')
+            # If parsing fails, keep original date string
+            pass
         
         try:
-            df['Entry Timestamp'] = pd.to_datetime(df['Entry Timestamp'], dayfirst=True).dt.strftime('%d-%m-%Y %H:%M')
+            df['Entry Timestamp'] = pd.to_datetime(df['Entry Timestamp']).dt.strftime('%d-%m-%Y %H:%M')
         except:
-            df['Entry Timestamp'] = pd.to_datetime(df['Entry Timestamp'], errors='coerce').dt.strftime('%d-%m-%Y %H:%M')
+            # If parsing fails, keep original timestamp string
+            pass
         
         return df.dropna(how='all')  # Remove completely empty rows
     
@@ -218,8 +219,6 @@ def style_row(row):
             styles[0] = 'color: green'
     return styles
 
-# _________________________________
-# Add this at the beginning of your home_page() function
 def home_page():
     """Display beautiful home page with logo"""
     st.set_page_config(page_title="School Fees Management", layout="wide", page_icon="🏫")
@@ -334,10 +333,6 @@ def home_page():
     st.markdown('<h1 class="title-text">School Fees Management System</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle-text">Streamline your school\'s fee collection and tracking process</p>', unsafe_allow_html=True)
     
-    # ... rest of your existing home_page() code ...
-
-# ____________________________________
-
     # Features section
     col1, col2, col3 = st.columns(3)
     
@@ -530,7 +525,7 @@ def main_app():
         st.rerun()
     
     if st.session_state.is_admin:
-        menu_options = ["Enter Fees", "View All Records", "Student Yearly Report", "User Management", "System Tools"]
+        menu_options = ["Enter Fees", "View All Records", "Paid & Unpaid Students Record", "Student Yearly Report", "User Management"]
     else:
         menu_options = ["Enter Fees", "View All Records", "Student Yearly Report"]
     
@@ -728,6 +723,137 @@ def main_app():
                 mime="text/csv"
             )
 
+    elif menu == "Paid & Unpaid Students Record":
+        st.header("✅ Paid & ❌ Unpaid Students Record")
+        df = load_data()
+        
+        if df.empty:
+            st.info("No fee records found")
+        else:
+            # Calculate outstanding amount for each record
+            df['Outstanding'] = df['Monthly Fee'] - df['Received Amount']
+            
+            # Get all unique students
+            all_students = df[['ID', 'Student Name', 'Class Category']].drop_duplicates()
+            
+            # Get all months in the academic year
+            MONTHS = ["APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", 
+                     "OCTOBER", "NOVEMBER", "DECEMBER", "JANUARY", "FEBRUARY", "MARCH"]
+            
+            # Create a DataFrame with all possible student-month combinations
+            all_combinations = pd.DataFrame([
+                (student['ID'], student['Student Name'], student['Class Category'], month)
+                for _, student in all_students.iterrows()
+                for month in MONTHS
+            ], columns=['ID', 'Student Name', 'Class Category', 'Month'])
+            
+            # Merge with actual payments
+            merged = pd.merge(all_combinations, 
+                             df[['ID', 'Month', 'Monthly Fee', 'Received Amount', 'Outstanding']],
+                             on=['ID', 'Month'], 
+                             how='left')
+            
+            # Get each student's standard monthly fee (first recorded fee)
+            student_fees = df.groupby('ID')['Monthly Fee'].first().reset_index()
+            merged = pd.merge(merged, student_fees, on='ID', how='left')
+            
+            # Calculate payment status
+            merged['Status'] = 'Unpaid'
+            merged.loc[merged['Outstanding'] <= 0, 'Status'] = 'Paid'
+            merged.loc[merged['Outstanding'].isna() & (merged['Monthly Fee_y'] > 0), 'Outstanding'] = merged['Monthly Fee_y']
+            
+            # Create tabs for each month
+            tabs = st.tabs(MONTHS)
+            
+            for i, month in enumerate(MONTHS):
+                with tabs[i]:
+                    month_data = merged[merged['Month'] == month].copy()
+                    
+                    if not month_data.empty:
+                        # Calculate summary stats
+                        total_students = len(month_data)
+                        paid_students = len(month_data[month_data['Status'] == 'Paid'])
+                        unpaid_students = total_students - paid_students
+                        total_outstanding = month_data[month_data['Status'] == 'Unpaid']['Monthly Fee_y'].sum()
+                        
+                        # Display summary metrics
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Total Students", total_students)
+                        with col2:
+                            st.metric("Paid Students", paid_students)
+                        with col3:
+                            st.metric("Unpaid Students", unpaid_students, 
+                                      delta=f"Rs. {int(total_outstanding):,}" if total_outstanding > 0 else None)
+                        
+                        # Display the data with color coding
+                        def color_status(val):
+                            color = 'green' if val == 'Paid' else 'red'
+                            return f'color: {color}'
+                        
+                        display_df = month_data[['Student Name', 'Class Category', 'Monthly Fee_y', 'Received Amount', 'Outstanding', 'Status']]
+                        display_df = display_df.rename(columns={
+                            'Monthly Fee_y': 'Monthly Fee',
+                            'Received Amount': 'Amount Paid',
+                            'Outstanding': 'Balance Due'
+                        })
+                        
+                        st.dataframe(
+                            display_df.style.format({
+                                'Monthly Fee': format_currency,
+                                'Amount Paid': format_currency,
+                                'Balance Due': format_currency
+                            }).applymap(color_status, subset=['Status']),
+                            use_container_width=True
+                        )
+                        
+                        # Download button for this month's data
+                        csv = display_df.to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                            label=f"📥 Download {month} Data",
+                            data=csv,
+                            file_name=f"{month.lower()}_payment_status.csv",
+                            mime="text/csv"
+                        )
+            
+            # Overall summary across all months
+            st.subheader("🎯 Overall Payment Status")
+            
+            # Calculate unpaid months per student
+            student_summary = merged.groupby(['ID', 'Student Name', 'Class Category'])['Status'].apply(
+                lambda x: (x == 'Unpaid').sum()
+            ).reset_index()
+            student_summary.columns = ['ID', 'Student Name', 'Class Category', 'Unpaid Months']
+            
+            # Calculate total outstanding per student
+            student_outstanding = merged[merged['Status'] == 'Unpaid'].groupby(
+                ['ID', 'Student Name', 'Class Category']
+            )['Monthly Fee_y'].sum().reset_index()
+            student_outstanding.columns = ['ID', 'Student Name', 'Class Category', 'Total Outstanding']
+            
+            # Merge the data
+            student_summary = pd.merge(student_summary, student_outstanding, 
+                                     on=['ID', 'Student Name', 'Class Category'],
+                                     how='left').fillna(0)
+            
+            # Display summary
+            st.dataframe(
+                student_summary.style.format({'Total Outstanding': format_currency}),
+                use_container_width=True
+            )
+            
+            # Download all data
+            csv = merged[['Student Name', 'Class Category', 'Month', 'Monthly Fee_y', 
+                         'Received Amount', 'Outstanding', 'Status']]\
+                  .rename(columns={'Monthly Fee_y': 'Monthly Fee'})\
+                  .to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Complete Payment Records",
+                data=csv,
+                file_name="complete_payment_records.csv",
+                mime="text/csv"
+            )
+        
     elif menu == "Student Yearly Report":
         st.header("📊 Student Yearly Fee Report")
         
@@ -765,6 +891,7 @@ def main_app():
                     
                     # Yearly summary
                     st.subheader("Fee Summary")
+                    
                     
                     # Calculate totals
                     total_monthly_fee = student_data['Monthly Fee'].sum()
@@ -837,32 +964,6 @@ def main_app():
             user_management()
         else:
             st.warning("⚠️ You don't have permission to access this page")
-
-    elif menu == "System Tools":
-        st.header("🛠️ System Tools")
-        
-        if st.button("🔍 Check CSV Integrity"):
-            df = load_data()
-            if not df.empty:
-                st.success("✅ CSV file is valid and contains data")
-                st.write(f"Total records: {len(df)}")
-                st.write("Sample data:")
-                st.dataframe(df.head())
-            else:
-                st.warning("⚠️ CSV file is empty or corrupted")
-        
-        if st.button("🔄 Reinitialize CSV File"):
-            try:
-                backup_file = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-                if os.path.exists(CSV_FILE):
-                    import shutil
-                    shutil.copyfile(CSV_FILE, backup_file)
-                    st.warning(f"⚠️ Created backup: {backup_file}")
-                
-                initialize_csv()
-                st.success("✅ CSV file reinitialized successfully")
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
 
 def main():
     initialize_files()
